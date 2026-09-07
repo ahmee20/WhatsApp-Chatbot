@@ -1,0 +1,553 @@
+{
+  "name": "whatsapp",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "id": "adc9eef9-b78b-4330-8f06-f139121d6e09",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1616,
+        -224
+      ],
+      "webhookId": "1b6aba88-a84e-40b6-bfb0-eecfcb1581a8",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "WpuFcAY1ccZ8qo9O",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4415916c-d8dc-45b2-81cd-3d4eafe0502d",
+              "leftValue": "={{ $json.messages[0].audio.voice }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6a8218d3-e8c7-441b-a23d-7dd6ba49e4cb",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1392,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "id": "193a8927-7fcd-4e79-81e6-f5d711e50220",
+      "name": "Download media",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1200,
+        -384
+      ],
+      "webhookId": "251bd0f1-3142-4da1-94d4-81916b54c49f",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ixBk9pHu8EFcxQC6",
+          "name": "wa2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "id": "3dd357cd-aa33-4078-a4cd-eaceea8e4b5f",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1008,
+        -384
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ixBk9pHu8EFcxQC6",
+          "name": "wa2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "4b3f9cef-c4d9-4c5a-b22a-232e27ba2474",
+      "name": "Transcribe a recording",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -816,
+        -384
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Message: \n{{ $if($('Transcribe a recording').isExecuted, $('Transcribe a recording').first().json.text, $('WhatsApp Trigger').first().json.messages[0].text.body) }}",
+        "options": {
+          "systemMessage": "=You are a helpful Dental Clinic assistant whose job is to book/update/cancel appointments and  assist the queries of the customers incoming via whatsapp. \nYou are provided with the services, their pricings, the details in the Google sheet. If user asks a query about services, fetch all the details from google sheets only once and store it in your memory and dont hit the sheets again unless you are unsure about the exact answer and instead of hallucinating, just go the sheets again.\nPlease note that: answer should not be long, no special characters, only output the actual answer, nothing like  \"here is the response...\" or kind of stuff. \n\nNote: You must not answer to irrelevant messages (like coding or solving problems or other stuff. )\n\n\nFor booking appointments, user will tell the date and you will have to use the google calender avaialbility tool to check the available time, if it is available - book it using the google calendar create event tool and if is not, tell the customer that it is not available and choose other time and repeat the process. Google calendar use the format: YYYY-MM-DDTHH:MM:SS[Offset] for time. current_time: \"{{ $now.toISO() }}\"\n\nIf the user leaves it on you, see the calendar and retrive all the available times and send the first 3 to choose. if user doesnt like those, send the next 3 and so on. finally update the calender and ask for the email of the user. Send the appointment confirmation email to the customer. \n\nSave the description of event as: Client Name + Service.\n\nCalendar will return an ID. send this idea to email and number as reference number. So when a user comes back and ask for appointment details of update/delete request..if you can see it in the memory then do the request and if it is not in the memory then ask the user to send the id or simply say you cant do that. After updating send a confirmation email and whatsapp message. Ask for email if not already have in memory.\nSend the email only once.\n\nNOTE: YOU MUST ANSWER IN ENGLISH FOR ENGLISH QUERIES. IF THE QUERY IS IN URDU/HINDI, REPLY IN ROMAN URDU. \n\nALWAYS WRITE DATA IN CALENDAR AND MAIL IN ENGLISH.\n\n"
+        }
+      },
+      "id": "376cbaab-e967-4db2-8dda-4f91b03ea5e6",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -640,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen3.7-flash",
+        "options": {}
+      },
+      "id": "e0b59a85-cff3-46d4-8318-6acbfb559467",
+      "name": "Qwen Cloud Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAlibabaCloud",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        176
+      ],
+      "credentials": {
+        "alibabaCloudApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('WhatsApp Trigger').first().json.contacts[0].wa_id }}"
+      },
+      "id": "1454e42c-47e5-482d-8408-6c5da86f6ae1",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -976,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1wUSW4E86esRsuHbyvmpFYaL1tTw4dJ9EJ5CunRhFEss",
+          "mode": "list",
+          "cachedResultName": "Untitled spreadsheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wUSW4E86esRsuHbyvmpFYaL1tTw4dJ9EJ5CunRhFEss/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Dental_Services_Catalog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wUSW4E86esRsuHbyvmpFYaL1tTw4dJ9EJ5CunRhFEss/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "id": "f7e8a047-ee8f-4760-93e6-209d368ee79b",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -832,
+        176
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zGlMt9IFODK1H0TR",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "voxylai@gmail.com",
+          "mode": "list",
+          "cachedResultName": "voxylai@gmail.com"
+        },
+        "timeMin": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start_Time', ``, 'string') }}",
+        "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End_Time', ``, 'string') }}",
+        "options": {}
+      },
+      "id": "55bc84dc-bcc5-4a60-af3b-383e7d26cc7d",
+      "name": "Get availability in a calendar in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        -656,
+        160
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "C69gERCeE2T5IKKe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "voxylai@gmail.com",
+          "mode": "list",
+          "cachedResultName": "voxylai@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', ``, 'string') }}"
+        }
+      },
+      "id": "9e491fb3-c875-4475-aed4-f1c1bce8ce9b",
+      "name": "Create an event in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        -496,
+        160
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "C69gERCeE2T5IKKe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "emailType": "text",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {}
+      },
+      "id": "663f5e00-b600-4198-b0cc-10f7497f3183",
+      "name": "Send a message in Gmail",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        160
+      ],
+      "webhookId": "3dcc254e-e4ee-4a9b-8f23-dcafc98f0c88",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Ktt9hk33s5C8C8KJ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "voxylai@gmail.com",
+          "mode": "list",
+          "cachedResultName": "voxylai@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "updateFields": {}
+      },
+      "id": "e5589354-c73f-43e3-8b7f-a105d33b1d45",
+      "name": "Update an event in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        -320,
+        160
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "C69gERCeE2T5IKKe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "voxylai@gmail.com",
+          "mode": "list",
+          "cachedResultName": "voxylai@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "id": "7cf0c10a-50c9-4228-9c59-a03b30175f9f",
+      "name": "Delete an event in Google Calendar",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        160
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "C69gERCeE2T5IKKe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1001037056420045",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "e2d228ca-667b-4e30-a23a-5328549fff7c",
+      "name": "Send message",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        -208
+      ],
+      "webhookId": "46dc235a-d8eb-4b05-ace6-e61f477ff16e",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ixBk9pHu8EFcxQC6",
+          "name": "wa2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download media": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get availability in a calendar in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "55576ade-71db-4b97-ab13-2a73da097779",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8cb38d5a93031bbc85ca12f455deb5cc776b8a26d478fe89fb838b85102d782a"
+  },
+  "nodeGroups": [],
+  "id": "kwYRsytH25PRwqlv",
+  "tags": []
+}
