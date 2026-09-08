@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { fetchHubspotBookings } from './hubspotService.js';
 
 dotenv.config();
@@ -11,11 +13,29 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`[Server] ${req.method} ${req.url}`);
+  next();
+});
+
 // API health and configuration check
 app.get('/api/status', (req, res) => {
-  const token = process.env.HUBSPOT_ACCESS_TOKEN;
-  const isConfigured = Boolean(token && token.trim() !== '' && !token.includes('your_hubspot_private_app_token'));
-  
+  try {
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const envConfig = dotenv.parse(fs.readFileSync(envPath));
+      for (const k in envConfig) {
+        process.env[k] = envConfig[k];
+      }
+    }
+  } catch (e) {
+    // Ignore error
+  }
+
+  const token = (process.env.HUBSPOT_ACCESS_TOKEN || '').trim();
+  const isConfigured = Boolean(token && token !== '' && !token.includes('your_hubspot_private_app_token'));
+
   res.json({
     status: 'online',
     isConfigured,
@@ -46,6 +66,6 @@ app.get('/api/bookings', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(` HubSpot CRM Proxy Backend running on port ${PORT}`);
-  console.log(` API available at http://localhost:${PORT}/api/bookings`);
+  console.log(` API available at: http://localhost:${PORT}/api/bookings`);
   console.log(`====================================================`);
 });

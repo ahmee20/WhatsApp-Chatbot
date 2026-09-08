@@ -1,13 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
-dotenv.config();
-
-// Configuration from environment
-const HUBSPOT_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
-const PROP_SERVICE = process.env.HUBSPOT_PROP_SERVICE || 'services';
-const PROP_COST = process.env.HUBSPOT_PROP_COST || 'service_cost';
-const PROP_DATE = process.env.HUBSPOT_PROP_BOOKING_DATE || 'booking_date';
-const PROP_STATUS = process.env.HUBSPOT_PROP_BOOKING_STATUS || 'booking_status';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Standardize status strings into canonical values: 'Confirmed' | 'visited' | 'cancelled'
@@ -25,7 +19,7 @@ export function normalizeStatus(rawStatus) {
 }
 
 /**
- * Generate comprehensive sample mock data matching real HubSpot contact formats
+ * Generate sample mock data matching real HubSpot contact formats
  */
 export function generateMockBookings() {
   const services = [
@@ -44,7 +38,6 @@ export function generateMockBookings() {
   const now = new Date();
   const bookings = [];
 
-  // Generate 85 realistic bookings across the last 45 days
   for (let i = 0; i < 85; i++) {
     const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
     const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
@@ -53,15 +46,10 @@ export function generateMockBookings() {
     const email = `${fn.toLowerCase()}.${ln.toLowerCase()}@${domain}`;
     const phone = `+1 (${Math.floor(200 + Math.random() * 700)}) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Generate date between 40 days ago and 5 days into future
     const dayOffset = Math.floor(Math.random() * 45) - 40;
     const bookingDate = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
-    // Random hour between 9:00 AM and 5:00 PM
     bookingDate.setHours(9 + Math.floor(Math.random() * 8), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);
 
-    // Realistic status distribution:
-    // Past dates: high visited rate (65%), some cancelled (20%), some confirmed/no-show (15%)
-    // Future dates: mostly confirmed (85%), some cancelled (15%)
     let status;
     const isPast = bookingDate < now;
     const rand = Math.random();
@@ -75,7 +63,6 @@ export function generateMockBookings() {
       else status = 'cancelled';
     }
 
-    // Add slight variance to cost
     const costVariance = Math.round((Math.random() * 40 - 20) / 10) * 10;
     const finalCost = Math.max(80, srv.cost + costVariance);
 
@@ -88,21 +75,44 @@ export function generateMockBookings() {
       phone,
       service: srv.name,
       cost: finalCost,
-      // Google Calendar ISO format e.g. 2026-09-08T14:30:00.000Z
       bookingDate: bookingDate.toISOString(),
       status
     });
   }
 
-  // Sort descending by date
   return bookings.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate));
 }
 
 /**
- * Fetch bookings from HubSpot CRM API v3
+ * Fetch bookings from HubSpot CRM API v3 with dynamic .env reload and detailed logging
  */
 export async function fetchHubspotBookings() {
-  if (!HUBSPOT_TOKEN || HUBSPOT_TOKEN.trim() === '' || HUBSPOT_TOKEN.includes('your_hubspot_private_app_token')) {
+  // Dynamically re-read .env file on each call so changes take effect without server restarts
+  try {
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const envConfig = dotenv.parse(fs.readFileSync(envPath));
+      for (const k in envConfig) {
+        process.env[k] = envConfig[k];
+      }
+    }
+  } catch (e) {
+    console.warn('[HubSpot Service] Note: Could not dynamically reload .env file:', e.message);
+  }
+
+  const token = (process.env.HUBSPOT_ACCESS_TOKEN || '').trim();
+  const propService = process.env.HUBSPOT_PROP_SERVICE || 'services';
+  const propCost = process.env.HUBSPOT_PROP_COST || 'service_cost';
+  const propDate = process.env.HUBSPOT_PROP_BOOKING_DATE || 'booking_date';
+  const propStatus = process.env.HUBSPOT_PROP_BOOKING_STATUS || 'booking_status';
+
+  console.log('\n------------------------------------------------------------');
+  console.log(`[HubSpot Service] Fetch requested at: ${new Date().toLocaleTimeString()}`);
+
+  if (!token || token === '' || token.includes('your_hubspot_private_app_token')) {
+    console.log('[HubSpot Service] WARNING: HUBSPOT_ACCESS_TOKEN is missing or empty in .env');
+    console.log('[HubSpot Service] Returning demo mock records instead.');
+    console.log('------------------------------------------------------------\n');
     return {
       success: true,
       isMock: true,
@@ -111,73 +121,94 @@ export async function fetchHubspotBookings() {
     };
   }
 
+  const maskedToken = token.length > 10 ? `${token.substring(0, 8)}...${token.slice(-4)}` : '***';
+  console.log(`[HubSpot Service] Using Access Token: ${maskedToken}`);
+
   try {
-    const properties = [
+    // Collect both standard contact fields and custom properties from n8n workflow
+    const propertiesList = [
       'email',
+      'user_email',
       'firstname',
       'lastname',
       'phone',
-      PROP_SERVICE,
-      PROP_COST,
-      PROP_DATE,
-      PROP_STATUS
-    ].join(',');
+      'contact_num',
+      propService,
+      propCost,
+      propDate,
+      propStatus
+    ];
+    // Remove duplicates
+    const uniqueProps = Array.from(new Set(propertiesList)).join(',');
 
-    const url = `https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=${properties}`;
+    const url = `https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=${uniqueProps}`;
+
+    console.log(`[HubSpot Service] Calling HubSpot API: GET ${url}`);
 
     const response = await axios.get(url, {
       headers: {
-        Authorization: `Bearer ${HUBSPOT_TOKEN.trim()}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      timeout: 10000
+      timeout: 15000
     });
 
     const results = response.data?.results || [];
+    console.log(`[HubSpot Service] SUCCESS! Received ${results.length} contacts from HubSpot CRM.`);
 
     const mappedBookings = results.map((contact) => {
       const props = contact.properties || {};
       const firstName = props.firstname || '';
       const lastName = props.lastname || '';
-      const fullName = `${firstName} ${lastName}`.trim() || 'Anonymous User';
+      const fullName = `${firstName} ${lastName}`.trim() || 'Anonymous Client';
+
+      // Parse email (checking standard email first, then custom user_email from n8n)
+      const email = props.email || props.user_email || 'N/A';
+
+      // Parse phone (checking standard phone first, then contact_num from n8n)
+      const phone = props.phone || props.contact_num || 'N/A';
 
       // Parse cost
       let cost = 0;
-      if (props[PROP_COST]) {
-        const cleaned = String(props[PROP_COST]).replace(/[^0-9.-]+/g, '');
+      if (props[propCost]) {
+        const cleaned = String(props[propCost]).replace(/[^0-9.-]+/g, '');
         cost = parseFloat(cleaned) || 0;
       }
 
       return {
         id: contact.id,
-        email: props.email || 'N/A',
+        email,
         firstName,
         lastName,
         fullName,
-        phone: props.phone || 'N/A',
-        service: props[PROP_SERVICE] || 'Standard Service',
+        phone,
+        service: props[propService] || 'General Dental Service',
         cost: cost,
-        bookingDate: props[PROP_DATE] || contact.createdAt || new Date().toISOString(),
-        status: normalizeStatus(props[PROP_STATUS])
+        bookingDate: props[propDate] || contact.createdAt || new Date().toISOString(),
+        status: normalizeStatus(props[propStatus])
       };
     });
+
+    console.log('------------------------------------------------------------\n');
 
     return {
       success: true,
       isMock: false,
-      message: `Successfully connected to HubSpot CRM. Loaded ${mappedBookings.length} bookings.`,
+      message: `Successfully connected to HubSpot CRM. Loaded ${mappedBookings.length} contacts.`,
       data: mappedBookings
     };
   } catch (error) {
-    console.error('HubSpot API Error:', error.response?.data || error.message);
-    
-    // If fallback is enabled, return mock data along with the error explanation
+    const errorDetails = error.response?.data || error.message;
+    console.error('\n[HubSpot Service] ERROR CALLING HUBSPOT API:');
+    console.error(JSON.stringify(errorDetails, null, 2));
+    console.log('------------------------------------------------------------\n');
+
     if (process.env.USE_MOCK_FALLBACK !== 'false') {
       return {
         success: true,
         isMock: true,
         error: error.response?.data?.message || error.message,
-        message: 'HubSpot API authentication failed or rate limited. Displaying fallback demo data.',
+        message: 'HubSpot API call failed. Returning fallback data for demonstration.',
         data: generateMockBookings()
       };
     }
