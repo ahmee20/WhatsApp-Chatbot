@@ -239,5 +239,4 @@ $$\text{Cancellation Rate} = \left( \frac{\text{Cancelled Bookings}}{\text{Total
 
 ---
 
-## 📄 License
-MIT License. Built for seamless clinic scheduling and revenue intelligence.
+
