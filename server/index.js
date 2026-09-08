@@ -42,6 +42,7 @@ app.get('/api/status', (req, res) => {
     tokenPrefix: isConfigured ? `${token.substring(0, 7)}...` : null,
     port: PORT,
     mappings: {
+      email: process.env.HUBSPOT_PROP_EMAIL || 'user_email',
       service: process.env.HUBSPOT_PROP_SERVICE || 'services',
       cost: process.env.HUBSPOT_PROP_COST || 'service_cost',
       date: process.env.HUBSPOT_PROP_BOOKING_DATE || 'booking_date',

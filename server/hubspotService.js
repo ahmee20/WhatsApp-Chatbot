@@ -162,8 +162,8 @@ export async function fetchHubspotBookings() {
       const lastName = props.lastname || '';
       const fullName = `${firstName} ${lastName}`.trim() || 'Anonymous Client';
 
-      // Parse email (checking standard email first, then custom user_email from n8n)
-      const email = props.email || props.user_email || 'N/A';
+      // Strictly use email from custom property user_email
+      const email = props.user_email || props[process.env.HUBSPOT_PROP_EMAIL || 'user_email'] || 'N/A';
 
       // Parse phone (checking standard phone first, then contact_num from n8n)
       const phone = props.phone || props.contact_num || 'N/A';
