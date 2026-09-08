@@ -130,7 +130,7 @@
         "promptType": "define",
         "text": "=User Message: \n{{ $if($('Transcribe a recording').isExecuted, $('Transcribe a recording').first().json.text, $('WhatsApp Trigger').first().json.messages[0].text.body) }}",
         "options": {
-          "systemMessage": "=You are a helpful Dental Clinic assistant whose job is to book/update/cancel appointments and  assist the queries of the customers incoming via whatsapp. \nYou are provided with the services, their pricings, the details in the Google sheet. If user asks a query about services, fetch all the details from google sheets only once and store it in your memory and dont hit the sheets again unless you are unsure about the exact answer and instead of hallucinating, just go the sheets again.\nPlease note that: answer should not be long, no special characters, only output the actual answer, nothing like  \"here is the response...\" or kind of stuff. \n\nNote: You must not answer to irrelevant messages (like coding or solving problems or other stuff. )\n\n\nFor booking appointments, user will tell the date and you will have to use the google calender avaialbility tool to check the available time, if it is available - book it using the google calendar create event tool and if is not, tell the customer that it is not available and choose other time and repeat the process. Google calendar use the format: YYYY-MM-DDTHH:MM:SS[Offset] for time. current_time: \"{{ $now.toISO() }}\"\n\nIf the user leaves it on you, see the calendar and retrive all the available times and send the first 3 to choose. if user doesnt like those, send the next 3 and so on. finally update the calender and ask for the email of the user. Send the appointment confirmation email to the customer. \n\nSave the description of event as: Client Name + Service.\n\nCalendar will return an ID. send this idea to email and number as reference number. So when a user comes back and ask for appointment details of update/delete request..if you can see it in the memory then do the request and if it is not in the memory then ask the user to send the id or simply say you cant do that. After updating send a confirmation email and whatsapp message. Ask for email if not already have in memory.\nSend the email only once.\n\nNOTE: YOU MUST ANSWER IN ENGLISH FOR ENGLISH QUERIES. IF THE QUERY IS IN URDU/HINDI, REPLY IN ROMAN URDU. \n\nALWAYS WRITE DATA IN CALENDAR AND MAIL IN ENGLISH.\n\n"
+          "systemMessage": "=You are a helpful Dental Clinic assistant whose job is to book/update/cancel appointments and  assist the queries of the customers incoming via whatsapp. \nYou are provided with the services, their pricings, the details in the Google sheet. If user asks a query about services, fetch all the details from google sheets only once and store it in your memory and dont hit the sheets again unless you are unsure about the exact answer and instead of hallucinating, just go the sheets again.\nPlease note that: answer should not be long, no special characters, only output the actual answer, nothing like  \"here is the response...\" or kind of stuff. \n\nNote: You must not answer to irrelevant messages (like coding or solving problems or other stuff. )\n\n\nFor booking appointments, user will tell the date and you will have to use the google calender avaialbility tool to check the available time, if it is available - book it using the google calendar create event tool and if is not, tell the customer that it is not available and choose other time and repeat the process. Google calendar use the format: YYYY-MM-DDTHH:MM:SS[Offset] for time. current_time: \"{{ $now.toISO() }}\"\n\nIf the user leaves it on you, see the calendar and retrive all the available times and send the first 3 to choose. if user doesnt like those, send the next 3 and so on. finally update the calender and ask for the email of the user. Send the appointment confirmation email to the customer. \n\nSave the description of event as: Client Name + Service.\n\nCalendar will return an ID. send this idea to email and number as reference number. So when a user comes back and ask for appointment details of update/delete request..if you can see it in the memory then do the request and if it is not in the memory then ask the user to send the id or simply say you cant do that. After updating send a confirmation email and whatsapp message. Ask for email if not already have in memory.\nSend the email only once.\n\nAfter the creation/update is cofirmed, store/update the lead in Hubspot using the hubspot tool.\n\nYou will have to add email (user email), first and last name, phone number (contact num), the service (Services) user booked or updated, cost of the services (service cost), date ( booking Date) in format used for google calendar above and a status column (booking status); enter 'Confirmed' if the user books appointment or  'cancelled' if the user cancels the appointment.  User phone number: {{ $('WhatsApp Trigger').first().json.contacts[0].wa_id }}\n\nNOTE: YOU MUST ANSWER IN ENGLISH FOR ENGLISH QUERIES. IF THE QUERY IS IN URDU/HINDI, REPLY IN ROMAN URDU. \n\nALWAYS WRITE DATA IN CALENDAR AND MAIL IN ENGLISH.\n\n"
         }
       },
       "id": "376cbaab-e967-4db2-8dda-4f91b03ea5e6",
@@ -276,7 +276,9 @@
         "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
         "emailType": "text",
         "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "id": "663f5e00-b600-4198-b0cc-10f7497f3183",
       "name": "Send a message in Gmail",
@@ -369,6 +371,65 @@
         "whatsAppApi": {
           "id": "ixBk9pHu8EFcxQC6",
           "name": "wa2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "=fuckhubspot@gmail.com",
+        "additionalFields": {
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "services",
+                "value": "={{ $fromAI('customPropertiesValues4_Value', ``, 'string') }}"
+              },
+              {
+                "property": "service_cost",
+                "value": "={{ $fromAI('customPropertiesValues5_Value', ``, 'string') }}"
+              },
+              {
+                "property": "booking_date",
+                "value": "={{ $fromAI('customPropertiesValues6_Value', ``, 'string') }}"
+              },
+              {
+                "property": "booking_status",
+                "value": "={{ $fromAI('customPropertiesValues7_Value', ``, 'string') }}"
+              },
+              {
+                "property": "contact_num",
+                "value": "={{ $fromAI('customPropertiesValues3_Value', ``, 'string') }}"
+              },
+              {
+                "property": "firstname",
+                "value": "={{ $fromAI('customPropertiesValues1_Value', ``, 'string') }}"
+              },
+              {
+                "property": "lastname",
+                "value": "={{ $fromAI('customPropertiesValues2_Value', ``, 'string') }}"
+              },
+              {
+                "property": "user_email",
+                "value": "={{ $fromAI('customPropertiesValues0_Value', ``, 'string') }}"
+              }
+            ]
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.hubspotTool",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        160
+      ],
+      "id": "a1235a6a-c658-440d-9581-9d62619d9843",
+      "name": "Create or update a contact in HubSpot",
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "vU3SBztntNguD0P6",
+          "name": "HubSpot account"
         }
       }
     }
@@ -535,6 +596,17 @@
           }
         ]
       ]
+    },
+    "Create or update a contact in HubSpot": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -542,7 +614,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "55576ade-71db-4b97-ab13-2a73da097779",
+  "versionId": "5f2d288a-200c-4ebd-a52c-af2e13bc4d03",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8cb38d5a93031bbc85ca12f455deb5cc776b8a26d478fe89fb838b85102d782a"
