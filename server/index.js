@@ -3,7 +3,6 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { fetchHubspotBookings } from './hubspotService.js';
 
 dotenv.config();
 
@@ -13,13 +12,13 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Request logger middleware
+// Request logger
 app.use((req, res, next) => {
   console.log(`[Server] ${req.method} ${req.url}`);
   next();
 });
 
-// API health and configuration check
+// Health / status endpoint
 app.get('/api/status', (req, res) => {
   try {
     const envPath = path.resolve(process.cwd(), '.env');
@@ -51,10 +50,12 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Bookings endpoint
+// Bookings endpoint with dynamic fresh import
 app.get('/api/bookings', async (req, res) => {
   try {
-    const result = await fetchHubspotBookings();
+    // Dynamically import hubspotService with timestamp to bust any module caching
+    const serviceModule = await import(`./hubspotService.js?t=${Date.now()}`);
+    const result = await serviceModule.fetchHubspotBookings();
     res.json(result);
   } catch (err) {
     res.status(500).json({
